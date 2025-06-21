@@ -11,7 +11,7 @@ module ram_memory_interface #(
 );
   parameter RAM_DEPTH = 1 << VALID_ADDR_WIDTH;
   
-//  (* RAM_STYLE="BLOCK" *)
+  (* RAM_STYLE="BLOCK" *)
   logic [DATA_WIDTH-1:0] ram [0:RAM_DEPTH-1];
   
   
@@ -46,6 +46,5 @@ module ram_memory_interface #(
       ram[i_write_addr] <= i_data;
     end
   end
-
 
 endmodule

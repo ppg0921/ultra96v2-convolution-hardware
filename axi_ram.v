@@ -170,10 +170,10 @@ assign s_axi_rvalid = PIPELINE_OUTPUT ? s_axi_rvalid_pipe_reg : s_axi_rvalid_reg
 
 integer i, j;
 
-ram_memory_interface #(
+convolution3_memory_interface #(
     .VALID_ADDR_WIDTH(VALID_ADDR_WIDTH), .DATA_WIDTH(DATA_WIDTH)
-) RMI0 (
-    .i_clk(clk), .i_rst(rst), .i_we(mem_wr_en), .i_re(mem_rd_en),
+) CMI0 (
+    .i_clk(clk), .i_rst_n(resetn), .i_we(mem_wr_en), .i_re(mem_rd_en),
     .i_write_addr(write_addr_valid), .i_read_addr(read_addr_valid),
     .i_data(s_axi_wdata), .o_data(s_axi_rdata_next)
 );

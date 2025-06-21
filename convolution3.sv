@@ -3,8 +3,8 @@ module convolution3 #(
 ) (
   input i_clk,
   input i_rst_n,
-  input [DATA_WIDTH-1:0] i_data [0:3-1][0:3-1],
-  input [DATA_WIDTH-1:0] i_kernel [0:3-1][0:3-1],
+  input [DATA_WIDTH-1:0]i_data [0:3-1][0:3-1] ,
+  input [DATA_WIDTH-1:0]i_kernel [0:3-1][0:3-1] ,
   input [2*DATA_WIDTH+3:0] i_cumulative_sum,
   output [2*DATA_WIDTH+3:0] o_result
 );
@@ -19,7 +19,6 @@ module convolution3 #(
 
   assign second_stage_sum_w = partial_sum_w + i_cumulative_sum;
   assign o_result = second_stage_sum_r;
-
 
   generate 
     for(gi = 0; gi < 3; gi = gi + 1) begin : gen_kernel_rows
@@ -38,7 +37,7 @@ module convolution3 #(
   generate
     for(gi = 0; gi < 3; gi = gi + 1) begin : gen_first_stage_sum
       int3Adder #(
-        .DATA_WIDTH(DATA_WIDTH)
+        .DATA_WIDTH(2*DATA_WIDTH)
       ) u_first_stage_adder (
         .i_a(product_w[gi][0]),
         .i_b(product_w[gi][1]),
@@ -49,15 +48,15 @@ module convolution3 #(
   endgenerate
 
   int3Adder #(
-    .DATA_WIDTH(DATA_WIDTH)
+    .DATA_WIDTH(2*DATA_WIDTH+2)
   ) u_second_stage_adder (
-    .i_a(first_stage_sum_w[0]),
-    .i_b(first_stage_sum_w[1]),
-    .i_c(first_stage_sum_w[2]),
-    .o_sum(second_stage_sum_w)
+    .i_a(first_stage_sum_r[0]),
+    .i_b(first_stage_sum_r[1]),
+    .i_c(first_stage_sum_r[2]),
+    .o_sum(partial_sum_w)
   );
 
-  always_ff @(posedge i_clk or negedge i_rst_n) begin
+  always_ff @(posedge i_clk) begin
     if(~i_rst_n) begin
       for(i = 0; i < 3; i = i + 1) begin
         for(j = 0; j < 3; j = j + 1) begin
@@ -95,10 +94,10 @@ endmodule
 module int3Adder #(
   parameter DATA_WIDTH = 4
 ) (
-  input [2*DATA_WIDTH-1:0] i_a,
-  input [2*DATA_WIDTH-1:0] i_b,
-  input [2*DATA_WIDTH-1:0] i_c,
-  output [2*DATA_WIDTH:0] o_sum
+  input [DATA_WIDTH-1:0] i_a,
+  input [DATA_WIDTH-1:0] i_b,
+  input [DATA_WIDTH-1:0] i_c,
+  output [DATA_WIDTH+1:0] o_sum
 );
   assign o_sum = i_a + i_b + i_c;
 endmodule
