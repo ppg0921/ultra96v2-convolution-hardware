@@ -3,8 +3,8 @@ module convolution3 #(
 ) (
   input i_clk,
   input i_rst_n,
-  input [DATA_WIDTH-1:0]i_data [0:3-1][0:3-1] ,
-  input [DATA_WIDTH-1:0]i_kernel [0:3-1][0:3-1] ,
+  input [DATA_WIDTH-1:0] i_data [0:3-1][0:3-1] ,
+  input [DATA_WIDTH-1:0] i_kernel [0:3-1][0:3-1] ,
   input [2*DATA_WIDTH+3:0] i_cumulative_sum,
   output [2*DATA_WIDTH+3:0] o_result
 );
