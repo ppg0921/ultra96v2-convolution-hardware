@@ -2,7 +2,7 @@ module convolution3_memory_interface #(
   parameter PRECISION_WIDTH = 4,
   parameter VALID_ADDR_WIDTH = 14,
   parameter DATA_WIDTH = 32,
-  parameter KERNEL_NUM = 56
+  parameter KERNEL_NUM = 112
 ) (
   input i_clk, i_rst_n,
   input i_we, i_re,
