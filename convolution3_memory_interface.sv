@@ -2,7 +2,7 @@ module convolution3_memory_interface #(
   parameter PRECISION_WIDTH = 4,
   parameter VALID_ADDR_WIDTH = 14,
   parameter DATA_WIDTH = 32,
-  parameter KERNEL_NUM = 8
+  parameter KERNEL_NUM = 56
 ) (
   input i_clk, i_rst_n,
   input i_we, i_re,
@@ -22,10 +22,11 @@ module convolution3_memory_interface #(
 
   // Output data
   logic [DATA_WIDTH-1:0] output_data;
-  logic [2*PRECISION_WIDTH+3:0] cumulative_sum_r [0:GROUP_NUM-1][0:7], cumulative_sum_w [0:GROUP_NUM-1][0:7], cov_result [0:GROUP_NUM-1][0:7];
+  logic [2*PRECISION_WIDTH+3:0] cumulative_sum_r [0:GROUP_NUM-1][0:7], cumulative_sum_w [0:GROUP_NUM-1][0:7], cov_result [0:GROUP_NUM-1][0:7], cumulative_sum_input [0:GROUP_NUM-1][0:7];
   logic [PRECISION_WIDTH-1:0] weight [0:2][0:2];
   logic [PRECISION_WIDTH-1:0] data [0:GROUP_NUM-1][0:7][0:2][0:2];
-  logic start_r, start_w, done_r, done_w;
+  logic start_r, start_w, done_r, done_w, clear_r, clear_w;
+  logic [VALID_ADDR_WIDTH-1:0] result_read_addr;
 
   logic [2:0] counter_w, counter_r;
 
@@ -44,6 +45,7 @@ module convolution3_memory_interface #(
               data[gi][6][0][0], data[gi][6][0][1], data[gi][6][0][2], data[gi][6][1][0], data[gi][6][1][1], data[gi][6][1][2], data[gi][6][2][0], data[gi][6][2][1], data[gi][6][2][2],
               data[gi][7][0][0], data[gi][7][0][1], data[gi][7][0][2], data[gi][7][1][0], data[gi][7][1][1], data[gi][7][1][2], data[gi][7][2][0], data[gi][7][2][1], data[gi][7][2][2]} 
         = {ram[gi], ram[gi+1], ram[gi+2], ram[gi+3], ram[gi+4], ram[gi+5], ram[gi+6], ram[gi+7], ram[gi+8]};
+      
       for (gj = 0; gj < 8; gj = gj + 1) begin : gen_8_kernel
         convolution3 #(
           .DATA_WIDTH(PRECISION_WIDTH)
@@ -52,19 +54,25 @@ module convolution3_memory_interface #(
           .i_rst_n(i_rst_n),
           .i_data(data[gi][gj]),
           .i_kernel(weight),
-          .i_cumulative_sum(cumulative_sum_r[gi][gj]),
+          .i_cumulative_sum(cumulative_sum_input[gi][gj]),
           .o_result(cov_result[gi][gj])
         );
+        assign cumulative_sum_input[gi][gj] = (clear_r) ? '0 : cumulative_sum_r[gi][gj];
       end
     end
+
+    
   endgenerate
 
   assign {weight[0][0], weight[0][1], weight[0][2], weight[1][0], weight[1][1], weight[1][2], weight[2][0], weight[2][1], weight[2][2]} 
         = {ram[RAM_DEPTH-2], ram[RAM_DEPTH-1][DATA_WIDTH-1 -: PRECISION_WIDTH]};
   
+  assign result_read_addr = i_read_addr - RAM_DEPTH;
+  
   
   // Read operation
   always_comb begin
+    output_data = '0; // Default value
     if (i_re) begin
       if(i_read_addr == 2**VALID_ADDR_WIDTH - 1) begin
         output_data = done_r;
@@ -74,7 +82,7 @@ module convolution3_memory_interface #(
         // Read from memory
         output_data = ram[i_read_addr];
       end else if (i_read_addr <= 2**VALID_ADDR_WIDTH - 3) begin
-        output_data = cumulative_sum_r[(i_read_addr-RAM_DEPTH)>>3][(i_read_addr-RAM_DEPTH)];
+        output_data = cumulative_sum_r[result_read_addr>>3][result_read_addr[2:0]];
       end 
     end else begin
       output_data = '0; // Default value when not reading
@@ -83,8 +91,17 @@ module convolution3_memory_interface #(
 
   always_comb begin
     start_w = 0;
-    if (i_we && i_write_addr == 2**VALID_ADDR_WIDTH - 2) begin
-      start_w = 1;
+    clear_w = clear_r;
+    if (i_we) begin
+      if(i_write_addr == 2**VALID_ADDR_WIDTH - 2) begin
+        start_w = 1;
+      end else if(i_write_addr == 2**VALID_ADDR_WIDTH - 3) begin
+        clear_w = i_data[0];
+      end
+    end else begin
+      if (counter_r == 3) begin
+        clear_w = 0;
+      end
     end
   end
 
@@ -113,11 +130,11 @@ module convolution3_memory_interface #(
   end
   
   // Initialize memory
-  initial begin
-    for (int i = 0; i < RAM_DEPTH; i++) begin
-      ram[i] = '0;
-    end
-  end
+  // initial begin
+  //   for (int i = 0; i < RAM_DEPTH; i++) begin
+  //     ram[i] = '0;
+  //   end
+  // end
 
   
   
@@ -128,21 +145,26 @@ module convolution3_memory_interface #(
       counter_r <= 0;
       done_r <= 0;
       start_r <= 0;
+      clear_r <= 0;
       for (k = 0; k < GROUP_NUM; k++) begin
         for (m = 0; m < 8; m++) begin
           cumulative_sum_r[k][m] <= '0;
         end
       end
+      for (int k = 0; k < RAM_DEPTH; k++) begin
+        ram[k] = '0;
+      end
     end else begin
       counter_r <= counter_w;
       done_r <= done_w;
       start_r <= start_w;
+      clear_r <= clear_w;
       for (k = 0; k < GROUP_NUM; k++) begin
         for (m = 0; m < 8; m++) begin
           cumulative_sum_r[k][m] <= cumulative_sum_w[k][m];
         end
       end
-      if (i_we && ~(|i_write_addr[VALID_ADDR_WIDTH-1:4])) begin
+      if (i_we && ~(|i_write_addr[VALID_ADDR_WIDTH-1:7])) begin
         ram[i_write_addr] <= i_data;
       end
     end
