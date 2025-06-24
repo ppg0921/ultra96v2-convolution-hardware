@@ -5,7 +5,6 @@ module convolution3 #(
   input i_rst_n,
   input [DATA_WIDTH-1:0] i_data [0:3-1][0:3-1] ,
   input [DATA_WIDTH-1:0] i_kernel [0:3-1][0:3-1] ,
-  input [2*DATA_WIDTH+3:0] i_cumulative_sum,
   output [2*DATA_WIDTH+3:0] o_result
 );
   logic [DATA_WIDTH-1:0] o_result_r;
@@ -17,9 +16,9 @@ module convolution3 #(
   logic [2*DATA_WIDTH+3:0] second_stage_sum_r, second_stage_sum_w;
   logic [2*DATA_WIDTH+3:0] partial_sum_w;
 
-  assign second_stage_sum_w = partial_sum_w + i_cumulative_sum;
+  assign second_stage_sum_w = partial_sum_w;
   assign o_result = second_stage_sum_r;
-
+  
   generate 
     for(gi = 0; gi < 3; gi = gi + 1) begin : gen_kernel_rows
       for(gj = 0; gj < 3; gj = gj + 1) begin : gen_kernel_cols
