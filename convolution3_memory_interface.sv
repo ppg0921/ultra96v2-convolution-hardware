@@ -30,7 +30,7 @@ module convolution3_memory_interface #(
   logic [2*PRECISION_WIDTH+3:0] cov_result [0:OUTPUT_POINT-1][0:CHANNEL_SEC-1][0:7];
   logic [2*PRECISION_WIDTH+6:0] first_stage_sum_r [0:OUTPUT_POINT-1][0:CHANNEL_SEC-1], first_stage_sum_w [0:OUTPUT_POINT-1][0:CHANNEL_SEC-1];
   logic [2*PRECISION_WIDTH+9:0] final_sum_r [0:OUTPUT_POINT-1], final_sum_w [0:OUTPUT_POINT-1];
-  logic [PRECISION_WIDTH-1:0] weight [0:OUTPUT_POINT-1][0:CHANNEL_SEC-1][0:7][0:2][0:2];
+  logic [PRECISION_WIDTH-1:0] weight [0:CHANNEL_SEC-1][0:7][0:2][0:2];
   logic [PRECISION_WIDTH-1:0] data [0:OUTPUT_POINT-1][0:CHANNEL_SEC-1][0:7][0:2][0:2];
   logic start_r, start_w, done_r, done_w;
   logic [VALID_ADDR_WIDTH-1:0] result_read_addr;
@@ -42,6 +42,18 @@ module convolution3_memory_interface #(
   
   assign o_data = output_data;
   generate
+    for (gi = 0; gi < CHANNEL_SEC; gi = gi + 1) begin : gen_weight
+      assign {weight[gi][0][0][0], weight[gi][0][0][1], weight[gi][0][0][2], weight[gi][0][1][0], weight[gi][0][1][1], weight[gi][0][1][2], weight[gi][0][2][0], weight[gi][0][2][1], weight[gi][0][2][2],
+                weight[gi][1][0][0], weight[gi][1][0][1], weight[gi][1][0][2], weight[gi][1][1][0], weight[gi][1][1][1], weight[gi][1][1][2], weight[gi][1][2][0], weight[gi][1][2][1], weight[gi][1][2][2],
+                weight[gi][2][0][0], weight[gi][2][0][1], weight[gi][2][0][2], weight[gi][2][1][0], weight[gi][2][1][1], weight[gi][2][1][2], weight[gi][2][2][0], weight[gi][2][2][1], weight[gi][2][2][2],
+                weight[gi][3][0][0], weight[gi][3][0][1], weight[gi][3][0][2], weight[gi][3][1][0], weight[gi][3][1][1], weight[gi][3][1][2], weight[gi][3][2][0], weight[gi][3][2][1], weight[gi][3][2][2],
+                weight[gi][4][0][0], weight[gi][4][0][1], weight[gi][4][0][2], weight[gi][4][1][0], weight[gi][4][1][1], weight[gi][4][1][2], weight[gi][4][2][0], weight[gi][4][2][1], weight[gi][4][2][2],
+                weight[gi][5][0][0], weight[gi][5][0][1], weight[gi][5][0][2], weight[gi][5][1][0], weight[gi][5][1][1], weight[gi][5][1][2], weight[gi][5][2][0], weight[gi][5][2][1], weight[gi][5][2][2],
+                weight[gi][6][0][0], weight[gi][6][0][1], weight[gi][6][0][2], weight[gi][6][1][0], weight[gi][6][1][1], weight[gi][6][1][2], weight[gi][6][2][0], weight[gi][6][2][1], weight[gi][6][2][2],
+                weight[gi][7][0][0], weight[gi][7][0][1], weight[gi][7][0][2], weight[gi][7][1][0], weight[gi][7][1][1], weight[gi][7][1][2], weight[gi][7][2][0], weight[gi][7][2][1], weight[gi][7][2][2]} 
+          = {ram[gi+WEIGHT_OFFSET], ram[gi+WEIGHT_OFFSET+1], ram[gi+WEIGHT_OFFSET+2], ram[gi+WEIGHT_OFFSET+3], ram[gi+WEIGHT_OFFSET+4], ram[gi+WEIGHT_OFFSET+5], ram[gi+WEIGHT_OFFSET+6], ram[gi+WEIGHT_OFFSET+7], ram[gi+WEIGHT_OFFSET+8]};
+    end
+
     for (gk = 0; gk < OUTPUT_POINT; gk = gk + 1) begin : gen_output_point
       for (gi = 0; gi < CHANNEL_SEC; gi = gi + 1) begin : gen_group
         assign {data[gk][gi][0][0][0], data[gk][gi][0][0][1], data[gk][gi][0][0][2], data[gk][gi][0][1][0], data[gk][gi][0][1][1], data[gk][gi][0][1][2], data[gk][gi][0][2][0], data[gk][gi][0][2][1], data[gk][gi][0][2][2],
@@ -54,16 +66,6 @@ module convolution3_memory_interface #(
                 data[gk][gi][7][0][0], data[gk][gi][7][0][1], data[gk][gi][7][0][2], data[gk][gi][7][1][0], data[gk][gi][7][1][1], data[gk][gi][7][1][2], data[gk][gi][7][2][0], data[gk][gi][7][2][1], data[gk][gi][7][2][2]} 
           = {ram[gi+gk*SECOND_OFFSET], ram[gi+gk*SECOND_OFFSET+1], ram[gi+gk*SECOND_OFFSET+2], ram[gi+gk*SECOND_OFFSET+3], ram[gi+gk*SECOND_OFFSET+4], ram[gi+gk*SECOND_OFFSET+5], ram[gi+gk*SECOND_OFFSET+6], ram[gi+gk*SECOND_OFFSET+7], ram[gi+gk*SECOND_OFFSET+8]};
         
-        assign {weight[gk][gi][0][0][0], weight[gk][gi][0][0][1], weight[gk][gi][0][0][2], weight[gk][gi][0][1][0], weight[gk][gi][0][1][1], weight[gk][gi][0][1][2], weight[gk][gi][0][2][0], weight[gk][gi][0][2][1], weight[gk][gi][0][2][2],
-                weight[gk][gi][1][0][0], weight[gk][gi][1][0][1], weight[gk][gi][1][0][2], weight[gk][gi][1][1][0], weight[gk][gi][1][1][1], weight[gk][gi][1][1][2], weight[gk][gi][1][2][0], weight[gk][gi][1][2][1], weight[gk][gi][1][2][2],
-                weight[gk][gi][2][0][0], weight[gk][gi][2][0][1], weight[gk][gi][2][0][2], weight[gk][gi][2][1][0], weight[gk][gi][2][1][1], weight[gk][gi][2][1][2], weight[gk][gi][2][2][0], weight[gk][gi][2][2][1], weight[gk][gi][2][2][2],
-                weight[gk][gi][3][0][0], weight[gk][gi][3][0][1], weight[gk][gi][3][0][2], weight[gk][gi][3][1][0], weight[gk][gi][3][1][1], weight[gk][gi][3][1][2], weight[gk][gi][3][2][0], weight[gk][gi][3][2][1], weight[gk][gi][3][2][2],
-                weight[gk][gi][4][0][0], weight[gk][gi][4][0][1], weight[gk][gi][4][0][2], weight[gk][gi][4][1][0], weight[gk][gi][4][1][1], weight[gk][gi][4][1][2], weight[gk][gi][4][2][0], weight[gk][gi][4][2][1], weight[gk][gi][4][2][2],
-                weight[gk][gi][5][0][0], weight[gk][gi][5][0][1], weight[gk][gi][5][0][2], weight[gk][gi][5][1][0], weight[gk][gi][5][1][1], weight[gk][gi][5][1][2], weight[gk][gi][5][2][0], weight[gk][gi][5][2][1], weight[gk][gi][5][2][2],
-                weight[gk][gi][6][0][0], weight[gk][gi][6][0][1], weight[gk][gi][6][0][2], weight[gk][gi][6][1][0], weight[gk][gi][6][1][1], weight[gk][gi][6][1][2], weight[gk][gi][6][2][0], weight[gk][gi][6][2][1], weight[gk][gi][6][2][2],
-                weight[gk][gi][7][0][0], weight[gk][gi][7][0][1], weight[gk][gi][7][0][2], weight[gk][gi][7][1][0], weight[gk][gi][7][1][1], weight[gk][gi][7][1][2], weight[gk][gi][7][2][0], weight[gk][gi][7][2][1], weight[gk][gi][7][2][2]} 
-          = {ram[gi+gk*SECOND_OFFSET+WEIGHT_OFFSET], ram[gi+gk*SECOND_OFFSET+WEIGHT_OFFSET+1], ram[gi+gk*SECOND_OFFSET+WEIGHT_OFFSET+2], ram[gi+gk*SECOND_OFFSET+WEIGHT_OFFSET+3], ram[gi+gk*SECOND_OFFSET+WEIGHT_OFFSET+4], ram[gi+gk*SECOND_OFFSET+WEIGHT_OFFSET+5], ram[gi+gk*SECOND_OFFSET+WEIGHT_OFFSET+6], ram[gi+gk*SECOND_OFFSET+WEIGHT_OFFSET+7], ram[gi+gk*SECOND_OFFSET+WEIGHT_OFFSET+8]};
-        
         for (gj = 0; gj < 8; gj = gj + 1) begin : gen_8_kernel
           convolution3 #(
             .DATA_WIDTH(PRECISION_WIDTH)
@@ -71,7 +73,7 @@ module convolution3_memory_interface #(
             .i_clk(i_clk),
             .i_rst_n(i_rst_n),
             .i_data(data[gk][gi][gj]),
-            .i_kernel(weight[gk][gi][gj]),
+            .i_kernel(weight[gi][gj]),
             .o_result(cov_result[gk][gi][gj])
           );
         end
