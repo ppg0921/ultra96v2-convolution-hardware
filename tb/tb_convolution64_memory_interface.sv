@@ -23,7 +23,7 @@ module tb_convolution_direct_output();
     reg read_mem_ready;
     reg [10:0] correct, error;
 
-    convolution3_memory_interface #(.PRECISION_WIDTH(4), .VALID_ADDR_WIDTH(14), .DATA_WIDTH(32), .KERNEL_NUM(128)) 
+    convolution3_memory_interface #(.PRECISION_WIDTH(5), .VALID_ADDR_WIDTH(14), .DATA_WIDTH(32), .KERNEL_NUM(128)) 
     CMI0 (
       .i_clk(clk),
       .i_rst_n(reset),
@@ -106,7 +106,7 @@ module tb_convolution_direct_output();
           write_memory(9*i+8, 32'h12345678);
         end
         for(i=0; i<72; i=i+1) begin
-          write_memory(72+i, 32'h11111111);
+          write_memory(72+i, 32'h22222222);
         end
 
         for(i=0; i<8; i=i+1) begin
@@ -137,7 +137,7 @@ module tb_convolution_direct_output();
         @(posedge clk);
         for(i=0; i<2; i=i+1) begin
           @(posedge clk);
-          read_addr = 14'h120 + i;
+          read_addr = 14'hD8 + i;
           read_memory(read_addr, read_data);
           $display("Read data from address %h: %h", read_addr, read_data);
         end

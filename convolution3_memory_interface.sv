@@ -1,5 +1,5 @@
 module convolution3_memory_interface #(
-  parameter PRECISION_WIDTH = 4,
+  parameter PRECISION_WIDTH = 5,    // 2's complement
   parameter VALID_ADDR_WIDTH = 14,
   parameter DATA_WIDTH = 32,
   parameter KERNEL_NUM = 128
@@ -13,7 +13,7 @@ module convolution3_memory_interface #(
 );
   
   // parameter RAM_DEPTH = 1 << VALID_ADDR_WIDTH;
-  parameter RAM_DEPTH = 2*9*(KERNEL_NUM/8); // Example depth, adjust as needed
+  parameter RAM_DEPTH = 3*9*(KERNEL_NUM/8)/2; // Example depth, adjust as needed
   parameter GROUP_NUM = KERNEL_NUM/8;
   parameter CHANNEL_SEC = 8;
   parameter CHANNEL_TOTAL = 64;
@@ -27,43 +27,51 @@ module convolution3_memory_interface #(
 
   // Output data
   logic [DATA_WIDTH-1:0] output_data;
-  logic [2*PRECISION_WIDTH+3:0] cov_result [0:OUTPUT_POINT-1][0:CHANNEL_SEC-1][0:7];
-  logic [2*PRECISION_WIDTH+6:0] first_stage_sum_r [0:OUTPUT_POINT-1][0:CHANNEL_SEC-1], first_stage_sum_w [0:OUTPUT_POINT-1][0:CHANNEL_SEC-1];
-  logic [2*PRECISION_WIDTH+9:0] final_sum_r [0:OUTPUT_POINT-1], final_sum_w [0:OUTPUT_POINT-1];
-  logic [PRECISION_WIDTH-1:0] weight [0:CHANNEL_SEC-1][0:7][0:2][0:2];
-  logic [PRECISION_WIDTH-1:0] data [0:OUTPUT_POINT-1][0:CHANNEL_SEC-1][0:7][0:2][0:2];
+  logic signed [2*PRECISION_WIDTH+3:0] cov_result [0:OUTPUT_POINT-1][0:CHANNEL_SEC-1][0:7];
+  logic signed [2*PRECISION_WIDTH+6:0] first_stage_sum_r [0:OUTPUT_POINT-1][0:CHANNEL_SEC-1], first_stage_sum_w [0:OUTPUT_POINT-1][0:CHANNEL_SEC-1];
+  logic signed [2*PRECISION_WIDTH+9:0] final_sum_r [0:OUTPUT_POINT-1], final_sum_w [0:OUTPUT_POINT-1];
+  logic signed [PRECISION_WIDTH-1:0] weight [0:CHANNEL_SEC-1][0:7][0:2][0:2];
+  logic signed [PRECISION_WIDTH-1:0] data [0:OUTPUT_POINT-1][0:CHANNEL_SEC-1][0:7][0:2][0:2];
   logic start_r, start_w, done_r, done_w;
   logic [VALID_ADDR_WIDTH-1:0] result_read_addr;
 
   logic [2:0] counter_w, counter_r;
 
-  genvar gi, gj, gk;
+  genvar gi, gj, gk, gm, gn;
   integer i, j, k, m, p, q;
   
   assign o_data = output_data;
   generate
     for (gi = 0; gi < CHANNEL_SEC; gi = gi + 1) begin : gen_weight
-      assign {weight[gi][0][0][0], weight[gi][0][0][1], weight[gi][0][0][2], weight[gi][0][1][0], weight[gi][0][1][1], weight[gi][0][1][2], weight[gi][0][2][0], weight[gi][0][2][1], weight[gi][0][2][2],
-                weight[gi][1][0][0], weight[gi][1][0][1], weight[gi][1][0][2], weight[gi][1][1][0], weight[gi][1][1][1], weight[gi][1][1][2], weight[gi][1][2][0], weight[gi][1][2][1], weight[gi][1][2][2],
-                weight[gi][2][0][0], weight[gi][2][0][1], weight[gi][2][0][2], weight[gi][2][1][0], weight[gi][2][1][1], weight[gi][2][1][2], weight[gi][2][2][0], weight[gi][2][2][1], weight[gi][2][2][2],
-                weight[gi][3][0][0], weight[gi][3][0][1], weight[gi][3][0][2], weight[gi][3][1][0], weight[gi][3][1][1], weight[gi][3][1][2], weight[gi][3][2][0], weight[gi][3][2][1], weight[gi][3][2][2],
-                weight[gi][4][0][0], weight[gi][4][0][1], weight[gi][4][0][2], weight[gi][4][1][0], weight[gi][4][1][1], weight[gi][4][1][2], weight[gi][4][2][0], weight[gi][4][2][1], weight[gi][4][2][2],
-                weight[gi][5][0][0], weight[gi][5][0][1], weight[gi][5][0][2], weight[gi][5][1][0], weight[gi][5][1][1], weight[gi][5][1][2], weight[gi][5][2][0], weight[gi][5][2][1], weight[gi][5][2][2],
-                weight[gi][6][0][0], weight[gi][6][0][1], weight[gi][6][0][2], weight[gi][6][1][0], weight[gi][6][1][1], weight[gi][6][1][2], weight[gi][6][2][0], weight[gi][6][2][1], weight[gi][6][2][2],
-                weight[gi][7][0][0], weight[gi][7][0][1], weight[gi][7][0][2], weight[gi][7][1][0], weight[gi][7][1][1], weight[gi][7][1][2], weight[gi][7][2][0], weight[gi][7][2][1], weight[gi][7][2][2]} 
+      assign {weight[gi][0][0][0][PRECISION_WIDTH-2:0], weight[gi][0][0][1][PRECISION_WIDTH-2:0], weight[gi][0][0][2][PRECISION_WIDTH-2:0], weight[gi][0][1][0][PRECISION_WIDTH-2:0], weight[gi][0][1][1][PRECISION_WIDTH-2:0], weight[gi][0][1][2][PRECISION_WIDTH-2:0], weight[gi][0][2][0][PRECISION_WIDTH-2:0], weight[gi][0][2][1][PRECISION_WIDTH-2:0], weight[gi][0][2][2][PRECISION_WIDTH-2:0],
+                weight[gi][1][0][0][PRECISION_WIDTH-2:0], weight[gi][1][0][1][PRECISION_WIDTH-2:0], weight[gi][1][0][2][PRECISION_WIDTH-2:0], weight[gi][1][1][0][PRECISION_WIDTH-2:0], weight[gi][1][1][1][PRECISION_WIDTH-2:0], weight[gi][1][1][2][PRECISION_WIDTH-2:0], weight[gi][1][2][0][PRECISION_WIDTH-2:0], weight[gi][1][2][1][PRECISION_WIDTH-2:0], weight[gi][1][2][2][PRECISION_WIDTH-2:0],
+                weight[gi][2][0][0][PRECISION_WIDTH-2:0], weight[gi][2][0][1][PRECISION_WIDTH-2:0], weight[gi][2][0][2][PRECISION_WIDTH-2:0], weight[gi][2][1][0][PRECISION_WIDTH-2:0], weight[gi][2][1][1][PRECISION_WIDTH-2:0], weight[gi][2][1][2][PRECISION_WIDTH-2:0], weight[gi][2][2][0][PRECISION_WIDTH-2:0], weight[gi][2][2][1][PRECISION_WIDTH-2:0], weight[gi][2][2][2][PRECISION_WIDTH-2:0],
+                weight[gi][3][0][0][PRECISION_WIDTH-2:0], weight[gi][3][0][1][PRECISION_WIDTH-2:0], weight[gi][3][0][2][PRECISION_WIDTH-2:0], weight[gi][3][1][0][PRECISION_WIDTH-2:0], weight[gi][3][1][1][PRECISION_WIDTH-2:0], weight[gi][3][1][2][PRECISION_WIDTH-2:0], weight[gi][3][2][0][PRECISION_WIDTH-2:0], weight[gi][3][2][1][PRECISION_WIDTH-2:0], weight[gi][3][2][2][PRECISION_WIDTH-2:0],
+                weight[gi][4][0][0][PRECISION_WIDTH-2:0], weight[gi][4][0][1][PRECISION_WIDTH-2:0], weight[gi][4][0][2][PRECISION_WIDTH-2:0], weight[gi][4][1][0][PRECISION_WIDTH-2:0], weight[gi][4][1][1][PRECISION_WIDTH-2:0], weight[gi][4][1][2][PRECISION_WIDTH-2:0], weight[gi][4][2][0][PRECISION_WIDTH-2:0], weight[gi][4][2][1][PRECISION_WIDTH-2:0], weight[gi][4][2][2][PRECISION_WIDTH-2:0],
+                weight[gi][5][0][0][PRECISION_WIDTH-2:0], weight[gi][5][0][1][PRECISION_WIDTH-2:0], weight[gi][5][0][2][PRECISION_WIDTH-2:0], weight[gi][5][1][0][PRECISION_WIDTH-2:0], weight[gi][5][1][1][PRECISION_WIDTH-2:0], weight[gi][5][1][2][PRECISION_WIDTH-2:0], weight[gi][5][2][0][PRECISION_WIDTH-2:0], weight[gi][5][2][1][PRECISION_WIDTH-2:0], weight[gi][5][2][2][PRECISION_WIDTH-2:0],
+                weight[gi][6][0][0][PRECISION_WIDTH-2:0], weight[gi][6][0][1][PRECISION_WIDTH-2:0], weight[gi][6][0][2][PRECISION_WIDTH-2:0], weight[gi][6][1][0][PRECISION_WIDTH-2:0], weight[gi][6][1][1][PRECISION_WIDTH-2:0], weight[gi][6][1][2][PRECISION_WIDTH-2:0], weight[gi][6][2][0][PRECISION_WIDTH-2:0], weight[gi][6][2][1][PRECISION_WIDTH-2:0], weight[gi][6][2][2][PRECISION_WIDTH-2:0],
+                weight[gi][7][0][0][PRECISION_WIDTH-2:0], weight[gi][7][0][1][PRECISION_WIDTH-2:0], weight[gi][7][0][2][PRECISION_WIDTH-2:0], weight[gi][7][1][0][PRECISION_WIDTH-2:0], weight[gi][7][1][1][PRECISION_WIDTH-2:0], weight[gi][7][1][2][PRECISION_WIDTH-2:0], weight[gi][7][2][0][PRECISION_WIDTH-2:0], weight[gi][7][2][1][PRECISION_WIDTH-2:0], weight[gi][7][2][2][PRECISION_WIDTH-2:0]} 
           = {ram[gi+WEIGHT_OFFSET], ram[gi+WEIGHT_OFFSET+1], ram[gi+WEIGHT_OFFSET+2], ram[gi+WEIGHT_OFFSET+3], ram[gi+WEIGHT_OFFSET+4], ram[gi+WEIGHT_OFFSET+5], ram[gi+WEIGHT_OFFSET+6], ram[gi+WEIGHT_OFFSET+7], ram[gi+WEIGHT_OFFSET+8]};
+      for (gj = 0; gj < 8; gj = gj + 1) begin : gen_8_kernel
+        for (gm = 0; gm < 3; gm = gm + 1) begin : gen_row_sign_extend_weight
+          for (gn = 0; gn < 3; gn = gn + 1) begin : gen_col_sign_extend_weight
+            assign weight[gi][gj][gm][gn][PRECISION_WIDTH-1] = weight[gi][gj][gm][gn][PRECISION_WIDTH-2];
+          end
+        end
+      end
+    
     end
 
     for (gk = 0; gk < OUTPUT_POINT; gk = gk + 1) begin : gen_output_point
       for (gi = 0; gi < CHANNEL_SEC; gi = gi + 1) begin : gen_group
-        assign {data[gk][gi][0][0][0], data[gk][gi][0][0][1], data[gk][gi][0][0][2], data[gk][gi][0][1][0], data[gk][gi][0][1][1], data[gk][gi][0][1][2], data[gk][gi][0][2][0], data[gk][gi][0][2][1], data[gk][gi][0][2][2],
-                data[gk][gi][1][0][0], data[gk][gi][1][0][1], data[gk][gi][1][0][2], data[gk][gi][1][1][0], data[gk][gi][1][1][1], data[gk][gi][1][1][2], data[gk][gi][1][2][0], data[gk][gi][1][2][1], data[gk][gi][1][2][2],
-                data[gk][gi][2][0][0], data[gk][gi][2][0][1], data[gk][gi][2][0][2], data[gk][gi][2][1][0], data[gk][gi][2][1][1], data[gk][gi][2][1][2], data[gk][gi][2][2][0], data[gk][gi][2][2][1], data[gk][gi][2][2][2],
-                data[gk][gi][3][0][0], data[gk][gi][3][0][1], data[gk][gi][3][0][2], data[gk][gi][3][1][0], data[gk][gi][3][1][1], data[gk][gi][3][1][2], data[gk][gi][3][2][0], data[gk][gi][3][2][1], data[gk][gi][3][2][2],
-                data[gk][gi][4][0][0], data[gk][gi][4][0][1], data[gk][gi][4][0][2], data[gk][gi][4][1][0], data[gk][gi][4][1][1], data[gk][gi][4][1][2], data[gk][gi][4][2][0], data[gk][gi][4][2][1], data[gk][gi][4][2][2],
-                data[gk][gi][5][0][0], data[gk][gi][5][0][1], data[gk][gi][5][0][2], data[gk][gi][5][1][0], data[gk][gi][5][1][1], data[gk][gi][5][1][2], data[gk][gi][5][2][0], data[gk][gi][5][2][1], data[gk][gi][5][2][2],
-                data[gk][gi][6][0][0], data[gk][gi][6][0][1], data[gk][gi][6][0][2], data[gk][gi][6][1][0], data[gk][gi][6][1][1], data[gk][gi][6][1][2], data[gk][gi][6][2][0], data[gk][gi][6][2][1], data[gk][gi][6][2][2],
-                data[gk][gi][7][0][0], data[gk][gi][7][0][1], data[gk][gi][7][0][2], data[gk][gi][7][1][0], data[gk][gi][7][1][1], data[gk][gi][7][1][2], data[gk][gi][7][2][0], data[gk][gi][7][2][1], data[gk][gi][7][2][2]} 
+        assign {data[gk][gi][0][0][0][PRECISION_WIDTH-2:0], data[gk][gi][0][0][1][PRECISION_WIDTH-2:0], data[gk][gi][0][0][2][PRECISION_WIDTH-2:0], data[gk][gi][0][1][0][PRECISION_WIDTH-2:0], data[gk][gi][0][1][1][PRECISION_WIDTH-2:0], data[gk][gi][0][1][2][PRECISION_WIDTH-2:0], data[gk][gi][0][2][0][PRECISION_WIDTH-2:0], data[gk][gi][0][2][1][PRECISION_WIDTH-2:0], data[gk][gi][0][2][2][PRECISION_WIDTH-2:0],
+                data[gk][gi][1][0][0][PRECISION_WIDTH-2:0], data[gk][gi][1][0][1][PRECISION_WIDTH-2:0], data[gk][gi][1][0][2][PRECISION_WIDTH-2:0], data[gk][gi][1][1][0][PRECISION_WIDTH-2:0], data[gk][gi][1][1][1][PRECISION_WIDTH-2:0], data[gk][gi][1][1][2][PRECISION_WIDTH-2:0], data[gk][gi][1][2][0][PRECISION_WIDTH-2:0], data[gk][gi][1][2][1][PRECISION_WIDTH-2:0], data[gk][gi][1][2][2][PRECISION_WIDTH-2:0],
+                data[gk][gi][2][0][0][PRECISION_WIDTH-2:0], data[gk][gi][2][0][1][PRECISION_WIDTH-2:0], data[gk][gi][2][0][2][PRECISION_WIDTH-2:0], data[gk][gi][2][1][0][PRECISION_WIDTH-2:0], data[gk][gi][2][1][1][PRECISION_WIDTH-2:0], data[gk][gi][2][1][2][PRECISION_WIDTH-2:0], data[gk][gi][2][2][0][PRECISION_WIDTH-2:0], data[gk][gi][2][2][1][PRECISION_WIDTH-2:0], data[gk][gi][2][2][2][PRECISION_WIDTH-2:0],
+                data[gk][gi][3][0][0][PRECISION_WIDTH-2:0], data[gk][gi][3][0][1][PRECISION_WIDTH-2:0], data[gk][gi][3][0][2][PRECISION_WIDTH-2:0], data[gk][gi][3][1][0][PRECISION_WIDTH-2:0], data[gk][gi][3][1][1][PRECISION_WIDTH-2:0], data[gk][gi][3][1][2][PRECISION_WIDTH-2:0], data[gk][gi][3][2][0][PRECISION_WIDTH-2:0], data[gk][gi][3][2][1][PRECISION_WIDTH-2:0], data[gk][gi][3][2][2][PRECISION_WIDTH-2:0],
+                data[gk][gi][4][0][0][PRECISION_WIDTH-2:0], data[gk][gi][4][0][1][PRECISION_WIDTH-2:0], data[gk][gi][4][0][2][PRECISION_WIDTH-2:0], data[gk][gi][4][1][0][PRECISION_WIDTH-2:0], data[gk][gi][4][1][1][PRECISION_WIDTH-2:0], data[gk][gi][4][1][2][PRECISION_WIDTH-2:0], data[gk][gi][4][2][0][PRECISION_WIDTH-2:0], data[gk][gi][4][2][1][PRECISION_WIDTH-2:0], data[gk][gi][4][2][2][PRECISION_WIDTH-2:0],
+                data[gk][gi][5][0][0][PRECISION_WIDTH-2:0], data[gk][gi][5][0][1][PRECISION_WIDTH-2:0], data[gk][gi][5][0][2][PRECISION_WIDTH-2:0], data[gk][gi][5][1][0][PRECISION_WIDTH-2:0], data[gk][gi][5][1][1][PRECISION_WIDTH-2:0], data[gk][gi][5][1][2][PRECISION_WIDTH-2:0], data[gk][gi][5][2][0][PRECISION_WIDTH-2:0], data[gk][gi][5][2][1][PRECISION_WIDTH-2:0], data[gk][gi][5][2][2][PRECISION_WIDTH-2:0],
+                data[gk][gi][6][0][0][PRECISION_WIDTH-2:0], data[gk][gi][6][0][1][PRECISION_WIDTH-2:0], data[gk][gi][6][0][2][PRECISION_WIDTH-2:0], data[gk][gi][6][1][0][PRECISION_WIDTH-2:0], data[gk][gi][6][1][1][PRECISION_WIDTH-2:0], data[gk][gi][6][1][2][PRECISION_WIDTH-2:0], data[gk][gi][6][2][0][PRECISION_WIDTH-2:0], data[gk][gi][6][2][1][PRECISION_WIDTH-2:0], data[gk][gi][6][2][2][PRECISION_WIDTH-2:0],
+                data[gk][gi][7][0][0][PRECISION_WIDTH-2:0], data[gk][gi][7][0][1][PRECISION_WIDTH-2:0], data[gk][gi][7][0][2][PRECISION_WIDTH-2:0], data[gk][gi][7][1][0][PRECISION_WIDTH-2:0], data[gk][gi][7][1][1][PRECISION_WIDTH-2:0], data[gk][gi][7][1][2][PRECISION_WIDTH-2:0], data[gk][gi][7][2][0][PRECISION_WIDTH-2:0], data[gk][gi][7][2][1][PRECISION_WIDTH-2:0], data[gk][gi][7][2][2][PRECISION_WIDTH-2:0]} 
           = {ram[gi+gk*SECOND_OFFSET], ram[gi+gk*SECOND_OFFSET+1], ram[gi+gk*SECOND_OFFSET+2], ram[gi+gk*SECOND_OFFSET+3], ram[gi+gk*SECOND_OFFSET+4], ram[gi+gk*SECOND_OFFSET+5], ram[gi+gk*SECOND_OFFSET+6], ram[gi+gk*SECOND_OFFSET+7], ram[gi+gk*SECOND_OFFSET+8]};
         
         for (gj = 0; gj < 8; gj = gj + 1) begin : gen_8_kernel
@@ -76,18 +84,25 @@ module convolution3_memory_interface #(
             .i_kernel(weight[gi][gj]),
             .o_result(cov_result[gk][gi][gj])
           );
+
+          for (gm = 0; gm < 3; gm = gm + 1) begin : gen_row_sign_extend
+            for (gn = 0; gn < 3; gn = gn + 1) begin : gen_col_sign_extend
+              assign data[gk][gi][gj][gm][gn][PRECISION_WIDTH-1] = data[gk][gi][gj][gm][gn][PRECISION_WIDTH-2];
+            end
+          end
         end
 
         adder8 #(
-          .DATA_WIDTH(12)
+          .DATA_WIDTH(14)
         ) u_adder8 (
           .i_a(cov_result[gk][gi]),
           .o_sum(first_stage_sum_w[gk][gi])
         );
+        
       end
 
       adder8 #(
-        .DATA_WIDTH(15)
+        .DATA_WIDTH(17)
       ) u_final_adder8 (
         .i_a(first_stage_sum_r[gk]),
         .o_sum(final_sum_w[gk])
@@ -194,14 +209,14 @@ module convolution3_memory_interface #(
 endmodule
 
 module adder8 #(
-  parameter DATA_WIDTH = 12
+  parameter DATA_WIDTH = 14
 ) (
-  input logic [DATA_WIDTH-1:0] i_a [0:7],
-  output logic [DATA_WIDTH+2:0] o_sum
+  input logic signed [DATA_WIDTH-1:0] i_a [0:7],
+  output logic signed [DATA_WIDTH+2:0] o_sum
 );
-  logic [DATA_WIDTH:0] first_stage_sum [0:3];
-  logic [DATA_WIDTH+1:0] second_stage_sum [0:1];
-  logic [DATA_WIDTH+2:0] final_sum;
+  logic signed [DATA_WIDTH:0] first_stage_sum [0:3];
+  logic signed [DATA_WIDTH+1:0] second_stage_sum [0:1];
+  logic signed [DATA_WIDTH+2:0] final_sum;
 
   assign o_sum = final_sum;
 

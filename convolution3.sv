@@ -1,20 +1,20 @@
 module convolution3 #(
-  parameter DATA_WIDTH = 4
+  parameter DATA_WIDTH = 5  // 2's complement representation
 ) (
   input i_clk,
   input i_rst_n,
-  input [DATA_WIDTH-1:0] i_data [0:3-1][0:3-1] ,
-  input [DATA_WIDTH-1:0] i_kernel [0:3-1][0:3-1] ,
+  input signed [DATA_WIDTH-1:0] i_data [0:3-1][0:3-1] ,
+  input signed [DATA_WIDTH-1:0] i_kernel [0:3-1][0:3-1] ,
   output [2*DATA_WIDTH+3:0] o_result
 );
   logic [DATA_WIDTH-1:0] o_result_r;
   integer i, j;
   genvar gi, gj;
-  logic [2*DATA_WIDTH-1:0] product_w [0:3-1][0:3-1];
-  logic [2*DATA_WIDTH-1:0] product_r [0:3-1][0:3-1];
-  logic [2*DATA_WIDTH+1:0] first_stage_sum_r [0:2], first_stage_sum_w [0:2];
-  logic [2*DATA_WIDTH+3:0] second_stage_sum_r, second_stage_sum_w;
-  logic [2*DATA_WIDTH+3:0] partial_sum_w;
+  logic signed [2*DATA_WIDTH-1:0] product_w [0:3-1][0:3-1];
+  logic signed [2*DATA_WIDTH-1:0] product_r [0:3-1][0:3-1];
+  logic signed [2*DATA_WIDTH+1:0] first_stage_sum_r [0:2], first_stage_sum_w [0:2];
+  logic signed [2*DATA_WIDTH+3:0] second_stage_sum_r, second_stage_sum_w;
+  logic signed [2*DATA_WIDTH+3:0] partial_sum_w;
 
   assign second_stage_sum_w = partial_sum_w;
   assign o_result = second_stage_sum_r;
@@ -81,22 +81,22 @@ module convolution3 #(
 endmodule
 
 module intMultiplier #(
-  parameter DATA_WIDTH = 4
+  parameter DATA_WIDTH = 5
 ) (
-  input [DATA_WIDTH-1:0] i_a,
-  input [DATA_WIDTH-1:0] i_b,
-  output [2*DATA_WIDTH-1:0] o_product
+  input signed [DATA_WIDTH-1:0] i_a,
+  input signed [DATA_WIDTH-1:0] i_b,
+  output signed [2*DATA_WIDTH-1:0] o_product
 );
   assign o_product = i_a * i_b;
 endmodule
 
 module int3Adder #(
-  parameter DATA_WIDTH = 4
+  parameter DATA_WIDTH = 5
 ) (
-  input [DATA_WIDTH-1:0] i_a,
-  input [DATA_WIDTH-1:0] i_b,
-  input [DATA_WIDTH-1:0] i_c,
-  output [DATA_WIDTH+1:0] o_sum
+  input signed [DATA_WIDTH-1:0] i_a,
+  input signed [DATA_WIDTH-1:0] i_b,
+  input signed [DATA_WIDTH-1:0] i_c,
+  output signed [DATA_WIDTH+1:0] o_sum
 );
   assign o_sum = i_a + i_b + i_c;
 endmodule
